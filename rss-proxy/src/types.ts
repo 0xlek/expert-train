@@ -15,3 +15,7 @@ export interface ProxyProvider {
   getConfig(): ProxyProviderConfig;
   loadProxies(): Promise<Proxy[]>;
 }
+
+export interface DnsResolver {
+  resolve4(domain: string): Promise<string[]>;
+}

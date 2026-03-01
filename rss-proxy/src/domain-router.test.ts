@@ -1,22 +1,25 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { DomainRouter } from "./domain-router";
-import dns from "node:dns/promises";
+import type { DnsResolver } from "./types";
 
 const originalFetch = globalThis.fetch;
-const originalResolve4 = dns.resolve4;
+
+function mockResolver(fn: (domain: string) => Promise<string[]>): DnsResolver {
+  return { resolve4: fn };
+}
 
 describe("DomainRouter", () => {
   let router: DomainRouter;
 
   beforeEach(() => {
-    router = new DomainRouter();
     globalThis.fetch = originalFetch;
-    dns.resolve4 = originalResolve4;
   });
 
   test("resolves domain via dns then headdoff, caches result", async () => {
     let fetchCount = 0;
-    dns.resolve4 = (async () => ["151.101.0.81"]) as typeof dns.resolve4;
+    const resolver = mockResolver(async () => ["151.101.0.81"]);
+    router = new DomainRouter(resolver);
+
     globalThis.fetch = (async (url: string) => {
       fetchCount++;
       expect(url).toContain("151.101.0.81");
@@ -32,14 +35,17 @@ describe("DomainRouter", () => {
   });
 
   test("returns null on dns failure", async () => {
-    dns.resolve4 = (async () => { throw new Error("ENOTFOUND"); }) as typeof dns.resolve4;
+    const resolver = mockResolver(async () => { throw new Error("ENOTFOUND"); });
+    router = new DomainRouter(resolver);
 
     const region = await router.resolve("broken.com");
     expect(region).toBeNull();
   });
 
   test("returns null on fetch failure", async () => {
-    dns.resolve4 = (async () => ["1.2.3.4"]) as typeof dns.resolve4;
+    const resolver = mockResolver(async () => ["1.2.3.4"]);
+    router = new DomainRouter(resolver);
+
     globalThis.fetch = (async () => {
       throw new Error("network error");
     }) as typeof fetch;
@@ -49,7 +55,9 @@ describe("DomainRouter", () => {
   });
 
   test("returns null on non-ok response", async () => {
-    dns.resolve4 = (async () => ["1.2.3.4"]) as typeof dns.resolve4;
+    const resolver = mockResolver(async () => ["1.2.3.4"]);
+    router = new DomainRouter(resolver);
+
     globalThis.fetch = (async () => {
       return new Response("not found", { status: 404 });
     }) as typeof fetch;
@@ -59,7 +67,9 @@ describe("DomainRouter", () => {
   });
 
   test("returns null when response has no country", async () => {
-    dns.resolve4 = (async () => ["1.2.3.4"]) as typeof dns.resolve4;
+    const resolver = mockResolver(async () => ["1.2.3.4"]);
+    router = new DomainRouter(resolver);
+
     globalThis.fetch = (async () => {
       return new Response(JSON.stringify({}), { status: 200 });
     }) as typeof fetch;

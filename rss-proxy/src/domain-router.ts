@@ -1,5 +1,5 @@
 import { createLogger } from "./logger";
-import dns from "node:dns/promises";
+import type { DnsResolver } from "./types";
 
 const log = createLogger("domain-router");
 
@@ -13,6 +13,8 @@ interface CacheEntry {
 export class DomainRouter {
   private cache = new Map<string, CacheEntry>();
 
+  constructor(private resolver: DnsResolver) {}
+
   async resolve(domain: string): Promise<string | null> {
     const cached = this.cache.get(domain);
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
@@ -21,7 +23,7 @@ export class DomainRouter {
     }
 
     try {
-      const addresses = await dns.resolve4(domain);
+      const addresses = await this.resolver.resolve4(domain);
       if (!addresses.length) {
         log.warn("dns returned no addresses", { domain });
         return null;

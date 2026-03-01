@@ -1,6 +1,8 @@
 import { WebshareProvider } from "./webshare-provider";
 import { ProxyManager } from "./proxy-manager";
 import { DomainRouter } from "./domain-router";
+import { NextDnsResolver } from "./nextdns-resolver";
+import { CachedDnsResolver } from "./cached-dns-resolver";
 import { ProxyHTTPClient } from "./proxy-http-client";
 import { createHandler } from "./server";
 import { createLogger } from "./logger";
@@ -17,7 +19,8 @@ const port = parseInt(process.env.PORT ?? "3000", 10);
 
 const provider = new WebshareProvider(apiKey);
 const manager = new ProxyManager([provider]);
-const router = new DomainRouter();
+const resolver = new CachedDnsResolver(new NextDnsResolver("https://dns.nextdns.io/d317db"));
+const router = new DomainRouter(resolver);
 const client = new ProxyHTTPClient(manager, router);
 const handler = createHandler(client);
 

@@ -6,7 +6,7 @@ COPY src ./src
 COPY tsconfig.json ./
 RUN bun build src/index.ts --compile --outfile=rss-proxy
 
-FROM debian:bookworm-slim
+FROM oven/bun:alpine
 COPY --from=build /app/rss-proxy /usr/local/bin/rss-proxy
 EXPOSE 3000
 CMD ["rss-proxy"]
