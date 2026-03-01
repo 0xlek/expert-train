@@ -25,8 +25,8 @@ export class NextDnsResolver implements TtlDnsResolver {
       });
 
       if (!res.ok) {
-        log.warn("non-ok response", { domain, status: res.status });
-        return { addresses: [], ttl: 0 };
+        log.warn("non-ok response, trying native fallback", { domain, status: res.status });
+        return this.nativeFallback(domain);
       }
 
       const data: DnsResponse = await res.json();
@@ -37,7 +37,19 @@ export class NextDnsResolver implements TtlDnsResolver {
       log.debug("resolved", { domain, addresses, ttl });
       return { addresses, ttl };
     } catch (err) {
-      log.error("dns resolution failed", { domain, error: String(err) });
+      log.error("dns resolution failed, trying native fallback", { domain, error: String(err) });
+      return this.nativeFallback(domain);
+    }
+  }
+
+  private async nativeFallback(domain: string): Promise<DnsResult> {
+    try {
+      const records = await Bun.dns.lookup(domain, { family: 4 });
+      const addresses = records.map((r) => r.address);
+      log.info("native fallback resolved", { domain, addresses });
+      return { addresses, ttl: 300 };
+    } catch (err) {
+      log.error("native dns fallback also failed", { domain, error: String(err) });
       return { addresses: [], ttl: 0 };
     }
   }

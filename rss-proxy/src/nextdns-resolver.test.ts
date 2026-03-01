@@ -1,7 +1,8 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { NextDnsResolver } from "./nextdns-resolver";
 
 const originalFetch = globalThis.fetch;
+const originalDns = Bun.dns.lookup;
 
 describe("NextDnsResolver", () => {
   let resolver: NextDnsResolver;
@@ -9,6 +10,7 @@ describe("NextDnsResolver", () => {
   beforeEach(() => {
     resolver = new NextDnsResolver("https://dns.nextdns.io/d317db");
     globalThis.fetch = originalFetch;
+    Bun.dns.lookup = originalDns;
   });
 
   test("resolves A records with TTL", async () => {
@@ -54,20 +56,42 @@ describe("NextDnsResolver", () => {
     expect(result.ttl).toBe(0);
   });
 
-  test("returns empty result on network error", async () => {
+  test("falls back to native dns on network error", async () => {
     globalThis.fetch = (async () => {
       throw new Error("network error");
     }) as typeof fetch;
 
+    Bun.dns.lookup = (async () => {
+      return [{ address: "93.184.216.34" }];
+    }) as typeof Bun.dns.lookup;
+
     const result = await resolver.resolve4WithTtl("example.com");
-    expect(result.addresses).toEqual([]);
-    expect(result.ttl).toBe(0);
+    expect(result.addresses).toEqual(["93.184.216.34"]);
+    expect(result.ttl).toBe(300);
   });
 
-  test("returns empty result on non-200 response", async () => {
+  test("falls back to native dns on non-200 response", async () => {
     globalThis.fetch = (async () => {
       return new Response("server error", { status: 500 });
     }) as typeof fetch;
+
+    Bun.dns.lookup = (async () => {
+      return [{ address: "93.184.216.34" }];
+    }) as typeof Bun.dns.lookup;
+
+    const result = await resolver.resolve4WithTtl("example.com");
+    expect(result.addresses).toEqual(["93.184.216.34"]);
+    expect(result.ttl).toBe(300);
+  });
+
+  test("returns empty when both nextdns and native fallback fail", async () => {
+    globalThis.fetch = (async () => {
+      throw new Error("network error");
+    }) as typeof fetch;
+
+    Bun.dns.lookup = (async () => {
+      throw new Error("ENOTFOUND");
+    }) as typeof Bun.dns.lookup;
 
     const result = await resolver.resolve4WithTtl("example.com");
     expect(result.addresses).toEqual([]);

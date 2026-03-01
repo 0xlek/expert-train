@@ -77,4 +77,65 @@ describe("DomainRouter", () => {
     const region = await router.resolve("weird.com");
     expect(region).toBeNull();
   });
+
+  test("negative caches dns failure, avoids repeated lookups", async () => {
+    let resolveCount = 0;
+    const resolver = mockResolver(async () => {
+      resolveCount++;
+      throw new Error("ENOTFOUND");
+    });
+    router = new DomainRouter(resolver);
+
+    await router.resolve("broken.com");
+    await router.resolve("broken.com");
+    await router.resolve("broken.com");
+
+    expect(resolveCount).toBe(1);
+  });
+
+  test("negative caches fetch failure", async () => {
+    let fetchCount = 0;
+    const resolver = mockResolver(async () => ["1.2.3.4"]);
+    router = new DomainRouter(resolver);
+
+    globalThis.fetch = (async () => {
+      fetchCount++;
+      throw new Error("network error");
+    }) as typeof fetch;
+
+    await router.resolve("fail.com");
+    await router.resolve("fail.com");
+
+    expect(fetchCount).toBe(1);
+  });
+
+  test("negative caches empty dns result", async () => {
+    let resolveCount = 0;
+    const resolver = mockResolver(async () => {
+      resolveCount++;
+      return [];
+    });
+    router = new DomainRouter(resolver);
+
+    await router.resolve("empty.com");
+    await router.resolve("empty.com");
+
+    expect(resolveCount).toBe(1);
+  });
+
+  test("negative caches missing region response", async () => {
+    let fetchCount = 0;
+    const resolver = mockResolver(async () => ["1.2.3.4"]);
+    router = new DomainRouter(resolver);
+
+    globalThis.fetch = (async () => {
+      fetchCount++;
+      return new Response(JSON.stringify({}), { status: 200 });
+    }) as typeof fetch;
+
+    await router.resolve("noregion.com");
+    await router.resolve("noregion.com");
+
+    expect(fetchCount).toBe(1);
+  });
 });

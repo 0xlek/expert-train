@@ -47,26 +47,41 @@ export class ProxyHTTPClient {
     const region = await this.domainRouter.resolve(domain);
     const proxyUrl = region ? this.proxyManager.proxyFor(region, "US") : this.proxyManager.proxyFor("US");
 
-    let res: Response;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const useDirect = !proxyUrl || attempt === 3;
+        let res: Response;
 
-    if (proxyUrl) {
-      log.info("proxied request", { url, method, domain, region, proxy: proxyUrl.replace(/\/\/.*@/, "//***@") });
-      res = await fetch(url, { method, headers, proxy: proxyUrl } as RequestInit);
-    } else {
-      log.error("no proxy available, falling back to direct request", { url, domain });
-      res = await fetch(url, { method, headers });
+        if (useDirect) {
+          if (attempt === 3 && proxyUrl) {
+            log.warn("retrying with direct request, skipping broken proxy", { url, domain, attempt });
+          } else if (!proxyUrl) {
+            log.error("no proxy available, falling back to direct request", { url, domain });
+          }
+          res = await fetch(url, { method, headers });
+        } else {
+          log.info("proxied request", { url, method, domain, region, proxy: proxyUrl.replace(/\/\/.*@/, "//***@"), attempt });
+          res = await fetch(url, { method, headers, proxy: proxyUrl } as RequestInit);
+        }
+
+        if (res.status === 429) {
+          log.warn("429 received, marking domain rate-limited", { domain });
+          this.rateLimitedDomains.set(domain, Date.now() + RATE_LIMIT_TTL_MS);
+          return new Response(EMPTY_RSS, {
+            status: 200,
+            headers: { "Content-Type": "application/xml" },
+          });
+        }
+
+        return res;
+      } catch (err) {
+        log.warn("fetch attempt failed", { url, attempt, error: String(err) });
+        if (attempt === 3) throw err;
+        await Bun.sleep(attempt * 500);
+      }
     }
 
-    if (res.status === 429) {
-      log.warn("429 received, marking domain rate-limited", { domain });
-      this.rateLimitedDomains.set(domain, Date.now() + RATE_LIMIT_TTL_MS);
-      return new Response(EMPTY_RSS, {
-        status: 200,
-        headers: { "Content-Type": "application/xml" },
-      });
-    }
-
-    return res;
+    throw new Error("unreachable");
   }
 
   destroy(): void {

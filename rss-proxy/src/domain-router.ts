@@ -4,6 +4,7 @@ import type { DnsResolver } from "./types";
 const log = createLogger("domain-router");
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CacheEntry {
   region: string;
@@ -17,15 +18,20 @@ export class DomainRouter {
 
   async resolve(domain: string): Promise<string | null> {
     const cached = this.cache.get(domain);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      log.debug("cache hit", { domain, region: cached.region });
-      return cached.region;
+    if (cached) {
+      const ttl = cached.region === "FAILED" ? NEGATIVE_CACHE_TTL_MS : CACHE_TTL_MS;
+      if (Date.now() - cached.ts < ttl) {
+        if (cached.region === "FAILED") return null;
+        log.debug("cache hit", { domain, region: cached.region });
+        return cached.region;
+      }
     }
 
     try {
       const addresses = await this.resolver.resolve4(domain);
       if (!addresses.length) {
         log.warn("dns returned no addresses", { domain });
+        this.cache.set(domain, { region: "FAILED", ts: Date.now() });
         return null;
       }
 
@@ -43,6 +49,7 @@ export class DomainRouter {
 
       if (!region) {
         log.warn("no region in response", { domain, ip, data });
+        this.cache.set(domain, { region: "FAILED", ts: Date.now() });
         return null;
       }
 
@@ -51,6 +58,7 @@ export class DomainRouter {
       return region;
     } catch (err) {
       log.error("failed to resolve domain", { domain, error: String(err) });
+      this.cache.set(domain, { region: "FAILED", ts: Date.now() });
       return null;
     }
   }
