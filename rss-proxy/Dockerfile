@@ -6,8 +6,7 @@ COPY src ./src
 COPY tsconfig.json ./
 RUN bun build src/index.ts --compile --outfile=rss-proxy
 
-FROM alpine:latest
-RUN apk add --no-cache libstdc++ libgcc
+FROM debian:bookworm-slim
 COPY --from=build /app/rss-proxy /usr/local/bin/rss-proxy
 EXPOSE 3000
 CMD ["rss-proxy"]
