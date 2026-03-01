@@ -1,0 +1,13 @@
+{
+  "name": "rss-proxy",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "build": "bun build src/index.ts --compile --outfile=rss-proxy"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

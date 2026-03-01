@@ -8,6 +8,8 @@ services:
       - POSTGRES_PASSWORD=oimate6777
     volumes:
       - freshrss_pgdata:/var/lib/postgresql/data
+    networks:
+      - freshrss-net
     restart: unless-stopped
     logging:
       options:
@@ -27,10 +29,28 @@ services:
       - ./freshrss/config/custom-cont-init.d:/custom-cont-init.d:ro
     ports:
       - "127.0.0.1:5980:80"
+    networks:
+      - freshrss-net
     restart: unless-stopped
     logging:
       options:
         max-size: 10m
+
+  rss-proxy:
+    build: ./rss-proxy
+    container_name: rss-proxy
+    environment:
+      - WEBSHARE_API_KEY=f626d4cbddf113cbf26e2336af8c85f73913062f
+      - PORT=3000
+    networks:
+      - freshrss-net
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: 10m
+
+networks:
+  freshrss-net:
 
 volumes:
   freshrss_pgdata:
