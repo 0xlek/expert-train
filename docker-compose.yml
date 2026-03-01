@@ -1,16 +1,36 @@
 services:
-  freshrss:
-    image: lscr.io/linuxserver/freshrss:latest
-    container_name: freshrss
+  db:
+    image: postgres:16-alpine
+    container_name: freshrss-db
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
+      - POSTGRES_DB=freshrss
+      - POSTGRES_USER=freshrss
+      - POSTGRES_PASSWORD=oimate6777
     volumes:
-      - ./freshrss/config:/config
-    ports:
-      - 5980:80
+      - freshrss_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     logging:
       options:
         max-size: 10m
+
+  freshrss:
+    image: lscr.io/linuxserver/freshrss:latest
+    container_name: freshrss
+    depends_on:
+      - db
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Dubai
+    volumes:
+      - ./freshrss/config:/config
+      - ./freshrss/config/custom-cont-init.d:/custom-cont-init.d:ro
+    ports:
+      - "127.0.0.1:5980:80"
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: 10m
+
+volumes:
+  freshrss_pgdata:
