@@ -14,16 +14,19 @@ interface RequestOptions {
 }
 
 export class ProxyHTTPClient {
-  private proxyManager: ProxyManager;
-  private domainRouter: DomainRouter;
+  private proxyManager: ProxyManager | null;
+  private domainRouter: DomainRouter | null;
+  private transparent: boolean;
   private rateLimitedDomains = new Map<string, number>();
 
-  constructor(proxyManager: ProxyManager, domainRouter: DomainRouter) {
+  constructor(proxyManager: ProxyManager | null, domainRouter: DomainRouter | null, transparent = false) {
     this.proxyManager = proxyManager;
     this.domainRouter = domainRouter;
+    this.transparent = transparent;
   }
 
   async setup(): Promise<void> {
+    if (this.transparent || !this.proxyManager) return;
     await this.proxyManager.init();
   }
 
@@ -42,6 +45,24 @@ export class ProxyHTTPClient {
 
     if (rateLimitedUntil && Date.now() >= rateLimitedUntil) {
       this.rateLimitedDomains.delete(domain);
+    }
+
+    if (this.transparent) {
+      log.info("transparent request", { url, method, domain });
+      const res = await fetch(url, { method, headers });
+      if (res.status === 429) {
+        log.warn("429 received, marking domain rate-limited", { domain });
+        this.rateLimitedDomains.set(domain, Date.now() + RATE_LIMIT_TTL_MS);
+        return new Response(EMPTY_RSS, {
+          status: 200,
+          headers: { "Content-Type": "application/xml" },
+        });
+      }
+      return res;
+    }
+
+    if (!this.domainRouter || !this.proxyManager) {
+      throw new Error("proxy infrastructure not available");
     }
 
     const region = await this.domainRouter.resolve(domain);
@@ -85,6 +106,7 @@ export class ProxyHTTPClient {
   }
 
   destroy(): void {
+    if (this.transparent || !this.proxyManager) return;
     this.proxyManager.destroy();
   }
 }

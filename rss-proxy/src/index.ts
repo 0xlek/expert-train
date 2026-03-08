@@ -9,22 +9,31 @@ import { createLogger } from "./logger";
 
 const log = createLogger("main");
 
-const apiKey = process.env.WEBSHARE_API_KEY;
-if (!apiKey) {
-  log.error("WEBSHARE_API_KEY is required");
-  process.exit(1);
-}
-
+const transparent = process.env.TRANSPARENT_PROXY === "true";
 const port = parseInt(process.env.PORT ?? "3000", 10);
 
-const provider = new WebshareProvider(apiKey);
-const manager = new ProxyManager([provider]);
-const resolver = new CachedDnsResolver(new NextDnsResolver("https://dns.nextdns.io/d317db"));
-const router = new DomainRouter(resolver);
-const client = new ProxyHTTPClient(manager, router);
+let client: ProxyHTTPClient;
+
+if (transparent) {
+  log.info("transparent proxy mode enabled, skipping proxy infrastructure");
+  client = new ProxyHTTPClient(null, null, true);
+} else {
+  const apiKey = process.env.WEBSHARE_API_KEY;
+  if (!apiKey) {
+    log.error("WEBSHARE_API_KEY is required");
+    process.exit(1);
+  }
+
+  const provider = new WebshareProvider(apiKey);
+  const manager = new ProxyManager([provider]);
+  const resolver = new CachedDnsResolver(new NextDnsResolver("https://dns.nextdns.io/d317db"));
+  const router = new DomainRouter(resolver);
+  client = new ProxyHTTPClient(manager, router);
+}
+
 const handler = createHandler(client);
 
-log.info("starting rss-proxy", { port });
+log.info("starting rss-proxy", { port, transparent });
 
 await client.setup();
 
