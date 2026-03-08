@@ -5,6 +5,7 @@ export interface Proxy {
   port: number;
   countryCode: string;
   valid: boolean;
+  scheme: "http" | "https";
 }
 
 export interface ProxyProviderConfig {

@@ -3,7 +3,7 @@ import { ProxyManager } from "./proxy-manager";
 import type { Proxy, ProxyProvider } from "./types";
 
 function makeProxy(countryCode: string, username: string): Proxy {
-  return { username, password: "pass", address: "p.webshare.io", port: 80, countryCode, valid: true };
+  return { username, password: "pass", address: "p.webshare.io", port: 80, countryCode, valid: true, scheme: "http" as const };
 }
 
 function mockProvider(proxies: Proxy[]): ProxyProvider {
@@ -65,7 +65,7 @@ describe("ProxyManager", () => {
   });
 
   test("returns backbone proxy url with credentials", async () => {
-    const proxy: Proxy = { username: "user-de-1", password: "mypass", address: "p.webshare.io", port: 80, countryCode: "DE", valid: true };
+    const proxy: Proxy = { username: "user-de-1", password: "mypass", address: "p.webshare.io", port: 80, countryCode: "DE", valid: true, scheme: "http" };
     const provider = mockProvider([proxy]);
     const manager = new ProxyManager([provider]);
     await manager.init();

@@ -25,15 +25,19 @@ export class ProxyManager {
     const index = new Map<string, Proxy[]>();
 
     for (const provider of this.providers) {
-      const proxies = await provider.loadProxies();
-      for (const proxy of proxies) {
-        const region = proxy.countryCode;
-        const list = index.get(region);
-        if (list) {
-          list.push(proxy);
-        } else {
-          index.set(region, [proxy]);
+      try {
+        const proxies = await provider.loadProxies();
+        for (const proxy of proxies) {
+          const region = proxy.countryCode;
+          const list = index.get(region);
+          if (list) {
+            list.push(proxy);
+          } else {
+            index.set(region, [proxy]);
+          }
         }
+      } catch (err) {
+        log.error("provider failed during refresh, skipping", { error: String(err) });
       }
     }
 
@@ -63,7 +67,7 @@ export class ProxyManager {
 
     const proxy = proxies[idx];
     log.debug("selected proxy", { region: usedRegion, index: idx, address: proxy.address, port: proxy.port });
-    return `http://${proxy.username}:${proxy.password}@${proxy.address}:${proxy.port}`;
+    return `${proxy.scheme}://${proxy.username}:${proxy.password}@${proxy.address}:${proxy.port}`;
   }
 
   destroy(): void {

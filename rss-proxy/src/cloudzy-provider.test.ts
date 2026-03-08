@@ -24,8 +24,8 @@ describe("CloudzyProvider", () => {
     const proxies = await provider.loadProxies();
 
     expect(proxies).toEqual([
-      { username: "", password: "my-pass", address: "45.1.2.3", port: 8080, countryCode: "US", valid: true },
-      { username: "", password: "my-pass", address: "89.4.5.6", port: 8080, countryCode: "DE", valid: true },
+      { username: "", password: "my-pass", address: "45.1.2.3", port: 8080, countryCode: "US", valid: true, scheme: "https" },
+      { username: "", password: "my-pass", address: "89.4.5.6", port: 8080, countryCode: "DE", valid: true, scheme: "https" },
     ]);
 
     globalThis.fetch = originalFetch;

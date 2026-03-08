@@ -62,6 +62,7 @@ export class WebshareProvider implements ProxyProvider {
             port: BACKBONE_PORT,
             countryCode: p.country_code,
             valid: p.valid,
+            scheme: "http",
           });
         }
 

@@ -45,6 +45,7 @@ export class CloudzyProvider implements ProxyProvider {
         port: s.port,
         countryCode: s.countryCode,
         valid: true,
+        scheme: "https" as const,
       }));
 
       this.proxies = all;
