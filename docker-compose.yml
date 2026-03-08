@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: freshrss-db
     environment:
-      - POSTGRES_DB=freshrss
-      - POSTGRES_USER=freshrss
-      - POSTGRES_PASSWORD=oimate6777
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - freshrss_pgdata:/var/lib/postgresql/data
     networks:
@@ -40,7 +40,10 @@ services:
     build: ./rss-proxy
     container_name: rss-proxy
     environment:
-      - WEBSHARE_API_KEY=f626d4cbddf113cbf26e2336af8c85f73913062f
+      - WEBSHARE_API_KEY=${WEBSHARE_API_KEY}
+      - CLOUDZY_API_URL=${CLOUDZY_API_URL}
+      - CLOUDZY_PASSPHRASE=${CLOUDZY_PASSPHRASE}
+      - NODE_EXTRA_CA_CERTS=${NODE_EXTRA_CA_CERTS}
       - PORT=3000
     networks:
       - freshrss-net

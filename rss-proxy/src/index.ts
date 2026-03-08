@@ -1,4 +1,5 @@
 import { WebshareProvider } from "./webshare-provider";
+import { CloudzyProvider } from "./cloudzy-provider";
 import { ProxyManager } from "./proxy-manager";
 import { DomainRouter } from "./domain-router";
 import { NextDnsResolver } from "./nextdns-resolver";
@@ -6,6 +7,7 @@ import { CachedDnsResolver } from "./cached-dns-resolver";
 import { ProxyHTTPClient } from "./proxy-http-client";
 import { createHandler } from "./server";
 import { createLogger } from "./logger";
+import type { ProxyProvider } from "./types";
 
 const log = createLogger("main");
 
@@ -18,14 +20,27 @@ if (transparent) {
   log.info("transparent proxy mode enabled, skipping proxy infrastructure");
   client = new ProxyHTTPClient(null, null, true);
 } else {
-  const apiKey = process.env.WEBSHARE_API_KEY;
-  if (!apiKey) {
-    log.error("WEBSHARE_API_KEY is required");
+  const providers: ProxyProvider[] = [];
+
+  const cloudzyApiUrl = process.env.CLOUDZY_API_URL;
+  const cloudzyPassphrase = process.env.CLOUDZY_PASSPHRASE;
+  if (cloudzyApiUrl && cloudzyPassphrase) {
+    providers.push(new CloudzyProvider(cloudzyApiUrl, cloudzyPassphrase));
+    log.info("cloudzy provider configured", { apiUrl: cloudzyApiUrl });
+  }
+
+  const webshareApiKey = process.env.WEBSHARE_API_KEY;
+  if (webshareApiKey) {
+    providers.push(new WebshareProvider(webshareApiKey));
+    log.info("webshare provider configured");
+  }
+
+  if (providers.length === 0) {
+    log.error("no proxy providers configured: set CLOUDZY_API_URL+CLOUDZY_PASSPHRASE or WEBSHARE_API_KEY");
     process.exit(1);
   }
 
-  const provider = new WebshareProvider(apiKey);
-  const manager = new ProxyManager([provider]);
+  const manager = new ProxyManager(providers);
   const resolver = new CachedDnsResolver(new NextDnsResolver("https://dns.nextdns.io/d317db"));
   const router = new DomainRouter(resolver);
   client = new ProxyHTTPClient(manager, router);
